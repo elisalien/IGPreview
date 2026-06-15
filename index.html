@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IG Preview — Prévisualisation de feed Instagram</title>
+<style>
+  :root {
+    --bg: #1a1a1a;
+    --panel: #242424;
+    --phone: #000;
+    --line: #2e2e2e;
+    --text: #f5f5f5;
+    --muted: #a8a8a8;
+    --accent: #0095f6;
+    --danger: #ed4956;
+    --new: #00d4aa;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ---------- Toolbar ---------- */
+  .toolbar {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 10px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { font-weight: 700; font-size: 15px; margin-right: 8px; letter-spacing: .3px; }
+  .brand span { color: var(--accent); }
+  .toolbar select {
+    background: #1c1c1c; color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 7px 10px; font-size: 13px; max-width: 180px;
+  }
+  .btn {
+    background: #333; color: var(--text);
+    border: none; border-radius: 8px;
+    padding: 8px 12px; font-size: 13px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: background .15s;
+  }
+  .btn:hover { background: #404040; }
+  .btn.primary { background: var(--accent); color: #fff; font-weight: 600; }
+  .btn.primary:hover { background: #1aa3ff; }
+  .btn.icon { padding: 8px 9px; font-size: 13px; }
+  .btn.danger:hover { background: var(--danger); }
+  .toolbar .sep { width: 1px; height: 24px; background: var(--line); margin: 0 4px; }
+  .toolbar .spacer { flex: 1; }
+  .toggle {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12.5px; color: var(--muted); cursor: pointer; user-select: none;
+  }
+  .toggle input { accent-color: var(--accent); cursor: pointer; }
+
+  /* ---------- Phone / profile ---------- */
+  main { display: flex; justify-content: center; padding: 28px 16px 60px; }
+  .phone {
+    width: 392px; max-width: 100%;
+    background: var(--phone);
+    border: 1px solid #333; border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  }
+  .ig-top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px 10px;
+  }
+  .ig-top .uname { font-weight: 700; font-size: 17px; outline: none; }
+  .ig-top .uname:focus { border-bottom: 1px dashed var(--muted); }
+  .ig-top .icons { color: var(--text); font-size: 18px; letter-spacing: 10px; opacity: .9; }
+
+  .profile { display: flex; align-items: center; gap: 8px; padding: 6px 16px 12px; }
+  .avatar {
+    width: 86px; height: 86px; border-radius: 50%;
+    flex: none; cursor: pointer; position: relative;
+    background: linear-gradient(135deg, #515BD4, #DD2A7B 55%, #FEDA77);
+    padding: 2.5px;
+  }
+  .avatar .inner {
+    width: 100%; height: 100%; border-radius: 50%;
+    border: 3px solid var(--phone);
+    background: #2a2a2a center/cover no-repeat;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 30px; color: var(--muted); overflow: hidden;
+  }
+  .avatar:hover::after {
+    content: "✎"; position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.45); border-radius: 50%;
+    font-size: 20px; color: #fff;
+  }
+  .stats { flex: 1; display: flex; justify-content: space-evenly; text-align: center; }
+  .stat .num { font-weight: 700; font-size: 16px; outline: none; }
+  .stat .num:focus { border-bottom: 1px dashed var(--muted); }
+  .stat .lbl { font-size: 12.5px; color: var(--text); }
+
+  .bio { padding: 0 16px 14px; font-size: 13.5px; line-height: 1.45; }
+  .bio .name { font-weight: 600; outline: none; }
+  .bio .desc { color: var(--text); outline: none; white-space: pre-wrap; }
+  .bio .name:focus, .bio .desc:focus { border-bottom: 1px dashed var(--muted); }
+
+  .tabs {
+    display: flex; border-top: 1px solid var(--line);
+    margin-top: 4px;
+  }
+  .tabs div {
+    flex: 1; text-align: center; padding: 11px 0; font-size: 19px;
+    color: var(--muted);
+  }
+  .tabs div.active { color: var(--text); border-bottom: 1.5px solid var(--text); margin-bottom: -1px; }
+
+  /* ---------- Grid ---------- */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+    background: var(--phone);
+    min-height: 120px;
+  }
+  .tile {
+    position: relative;
+    aspect-ratio: 3 / 4;
+    overflow: hidden;
+    background: #111;
+    cursor: grab;
+  }
+  .tile img {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+    user-select: none;
+  }
+  .tile.dragging { opacity: .35; }
+  .tile .badge {
+    display: none;
+    position: absolute; top: 5px; left: 5px;
+    background: var(--new); color: #00261f;
+    font-size: 9px; font-weight: 800; letter-spacing: .5px;
+    padding: 2px 5px; border-radius: 4px;
+    pointer-events: none;
+  }
+  .grid.show-badges .tile.is-new .badge { display: block; }
+  .tile .acts {
+    position: absolute; top: 4px; right: 4px;
+    display: none; gap: 3px;
+  }
+  .tile:hover .acts { display: flex; }
+  .tile .acts button {
+    width: 24px; height: 24px;
+    border: none; border-radius: 6px;
+    background: rgba(0,0,0,.65); color: #fff;
+    font-size: 12px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tile .acts button:hover { background: var(--accent); }
+  .tile .acts button.del:hover { background: var(--danger); }
+
+  .empty-hint {
+    grid-column: 1 / -1;
+    padding: 48px 24px; text-align: center;
+    color: var(--muted); font-size: 13.5px; line-height: 1.7;
+    border: 1px dashed #333; margin: 12px; border-radius: 12px;
+  }
+  body.drag-over .phone { outline: 2px dashed var(--accent); outline-offset: 4px; }
+
+  /* ---------- Modals ---------- */
+  .modal-backdrop {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,.7);
+    display: none; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--line); border-radius: 16px;
+    max-width: 860px; width: 100%;
+    max-height: 92vh; overflow: auto;
+    padding: 20px;
+  }
+  .modal h2 { margin: 0 0 4px; font-size: 16px; }
+  .modal p.hint { margin: 0 0 14px; font-size: 12.5px; color: var(--muted); }
+  .modal .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin: 10px 0; }
+  .modal label.ctl { font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .modal input[type=range] { accent-color: var(--accent); width: 130px; }
+  .modal input[type=number] {
+    width: 56px; background: #1c1c1c; color: var(--text);
+    border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px;
+  }
+  .modal .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+  /* Slicer */
+  .slicer-stage { position: relative; display: inline-block; max-width: 100%; line-height: 0; }
+  .slicer-stage img { max-width: 100%; max-height: 56vh; display: block; }
+  .slicer-cell {
+    position: absolute;
+    border: 1.5px solid var(--new);
+    box-shadow: 0 0 0 1px rgba(0,0,0,.6);
+    pointer-events: none;
+  }
+  .slicer-cell.invalid { border-color: var(--danger); }
+
+  /* Crop editor */
+  .crop-viewport {
+    width: 282px; height: 376px;
+    margin: 0 auto;
+    overflow: hidden; position: relative;
+    background: #111; border-radius: 4px;
+    cursor: grab; touch-action: none;
+  }
+  .crop-viewport:active { cursor: grabbing; }
+  .crop-viewport img {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%; object-fit: cover;
+    pointer-events: none; user-select: none;
+  }
+</style>
+</head>
+<body>
+
+<header class="toolbar">
+  <div class="brand">IG<span>Preview</span></div>
+  <select id="scenarioSelect" title="Scénario actif"></select>
+  <button class="btn icon" id="scNew"    title="Nouveau scénario">＋</button>
+  <button class="btn icon" id="scRename" title="Renommer le scénario">✎</button>
+  <button class="btn icon" id="scDup"    title="Dupliquer le scénario">⧉</button>
+  <button class="btn icon danger" id="scDel" title="Supprimer le scénario">🗑</button>
+  <div class="sep"></div>
+  <button class="btn primary" id="addPhotos">＋ Nouvelles photos</button>
+  <button class="btn" id="importShot">🖼 Importer une capture du feed</button>
+  <button class="btn" id="siphonBtn">🔗 Siphonner un compte</button>
+  <div class="spacer"></div>
+  <label class="toggle"><input type="checkbox" id="badgeToggle"> Marquer les nouvelles</label>
+</header>
+
+<main>
+  <div class="phone" id="phone">
+    <div class="ig-top">
+      <div class="uname" id="pUsername" contenteditable="true" spellcheck="false">mon_compte</div>
+      <div class="icons">⊕ ☰</div>
+    </div>
+    <div class="profile">
+      <div class="avatar" id="avatar" title="Changer la photo de profil">
+        <div class="inner" id="avatarInner">👤</div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="num" id="pPosts">0</div><div class="lbl">publications</div></div>
+        <div class="stat"><div class="num" id="pFollowers" contenteditable="true" spellcheck="false">1 024</div><div class="lbl">followers</div></div>
+        <div class="stat"><div class="num" id="pFollowing" contenteditable="true" spellcheck="false">342</div><div class="lbl">suivi(e)s</div></div>
+      </div>
+    </div>
+    <div class="bio">
+      <div class="name" id="pName" contenteditable="true" spellcheck="false">Mon Nom</div>
+      <div class="desc" id="pBio" contenteditable="true" spellcheck="false">Ma bio ✨</div>
+    </div>
+    <div class="tabs"><div class="active">▦</div><div>▶</div><div>🜍</div></div>
+    <div class="grid show-badges" id="grid"></div>
+  </div>
+</main>
+
+<input type="file" id="fileInput" accept="image/*" multiple hidden>
+<input type="file" id="avatarInput" accept="image/*" hidden>
+<input type="file" id="shotInput" accept="image/*" hidden>
+<input type="file" id="exportInput" accept=".json,application/json" hidden>
+
+<!-- ============ Modal : découpage de capture ============ -->
+<div class="modal-backdrop" id="slicerModal">
+  <div class="modal">
+    <h2>Importer une capture d'écran du feed</h2>
+    <p class="hint">Ajuste la grille verte pour qu'elle colle aux miniatures de ta capture. Chaque cellule deviendra un post « existant ».</p>
+    <div class="row">
+      <label class="ctl">Haut <input type="range" id="slTop" min="0" max="100" value="0"> <span id="slTopV"></span></label>
+      <label class="ctl">Marges latérales <input type="range" id="slSide" min="0" max="100" value="0"> <span id="slSideV"></span></label>
+      <label class="ctl">Espacement <input type="range" id="slGap" min="0" max="30" value="3"> <span id="slGapV"></span></label>
+      <label class="ctl">Rangées <input type="number" id="slRows" min="1" max="20" value="4"></label>
+    </div>
+    <div class="slicer-stage" id="slicerStage">
+      <img id="slicerImg" alt="">
+    </div>
+    <div class="actions">
+      <button class="btn" id="slCancel">Annuler</button>
+      <button class="btn primary" id="slConfirm">Importer les posts</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Modal : siphonnage ============ -->
+<div class="modal-backdrop" id="siphonModal">
+  <div class="modal" style="max-width:560px">
+    <h2>Siphonner un compte Instagram</h2>
+    <p class="hint">Récupère les vraies miniatures d'un profil via ton navigateur déjà connecté — rien ne passe par un serveur tiers.</p>
+    <ol style="font-size:13px; line-height:1.8; color:var(--text); padding-left:20px; margin:10px 0">
+      <li>Glisse ce bouton dans ta barre de favoris :<br>
+        <a id="bookmarklet" class="btn primary" style="text-decoration:none; display:inline-flex; margin-top:6px" title="Glisse-moi dans la barre de favoris !">⬇ Siphon IGPreview</a>
+      </li>
+      <li>Ouvre <b>instagram.com/le_compte</b> et scrolle pour charger les posts voulus.</li>
+      <li>Clique le favori « Siphon IGPreview » → un fichier <code>.json</code> se télécharge.</li>
+      <li>Reviens ici et importe-le :</li>
+    </ol>
+    <div class="row">
+      <button class="btn primary" id="importExportBtn">📂 Importer un fichier siphonné (.json)</button>
+    </div>
+    <div class="actions">
+      <button class="btn" id="siphonClose">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Modal : recadrage ============ -->
+<div class="modal-backdrop" id="cropModal">
+  <div class="modal" style="max-width:380px">
+    <h2>Recadrer la miniature</h2>
+    <p class="hint">Glisse l'image pour la repositionner, utilise le zoom ci-dessous.</p>
+    <div class="crop-viewport" id="cropViewport">
+      <img id="cropImg" alt="">
+    </div>
+    <div class="row" style="justify-content:center">
+      <label class="ctl">Zoom <input type="range" id="cropZoom" min="1" max="3" step="0.01" value="1"></label>
+    </div>
+    <div class="actions">
+      <button class="btn" id="cropReset">Réinitialiser</button>
+      <button class="btn" id="cropCancel">Annuler</button>
+      <button class="btn primary" id="cropSave">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ==================== IndexedDB ==================== */
+let db;
+function openDB() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open("igpreview", 1);
+    r.onupgradeneeded = () => {
+      r.result.createObjectStore("images");
+      r.result.createObjectStore("scenarios");
+      r.result.createObjectStore("meta");
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+function tx(store, mode, fn) {
+  return new Promise((res, rej) => {
+    const t = db.transaction(store, mode);
+    const req = fn(t.objectStore(store));
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+const dbGet  = (s, k)    => tx(s, "readonly",  o => o.get(k));
+const dbSet  = (s, k, v) => tx(s, "readwrite", o => o.put(v, k));
+const dbDel  = (s, k)    => tx(s, "readwrite", o => o.delete(k));
+const dbKeys = (s)       => tx(s, "readonly",  o => o.getAllKeys());
+
+/* ==================== État ==================== */
+const uid = () => crypto.randomUUID();
+const urlCache = new Map(); // imgId -> objectURL
+
+let scenarios = [];         // [{id, name, createdAt}]
+let currentId = null;
+let state = null;           // {profile, posts, settings}
+
+function defaultState() {
+  return {
+    profile: { username: "mon_compte", name: "Mon Nom", bio: "Ma bio ✨",
+               followers: "1 024", following: "342", avatarId: null },
+    posts: [],              // [{id, imgId, isNew, x, y, s}]
+    settings: { showBadges: true }
+  };
+}
+
+async function ensureURL(imgId) {
+  if (!imgId || urlCache.has(imgId)) return;
+  const blob = await dbGet("images", imgId);
+  if (blob) urlCache.set(imgId, URL.createObjectURL(blob));
+}
+async function addImage(blob) {
+  const id = uid();
+  await dbSet("images", id, blob);
+  urlCache.set(id, URL.createObjectURL(blob));
+  return id;
+}
+
+/* ==================== Sauvegarde ==================== */
+let saveTimer;
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNow, 400);
+}
+async function saveNow() {
+  const sc = scenarios.find(s => s.id === currentId);
+  if (!sc) return;
+  await dbSet("scenarios", currentId, { name: sc.name, createdAt: sc.createdAt, state });
+}
+
+/* ==================== Rendu ==================== */
+const $ = id => document.getElementById(id);
+const grid = $("grid");
+
+function renderProfile() {
+  const p = state.profile;
+  $("pUsername").textContent  = p.username;
+  $("pName").textContent      = p.name;
+  $("pBio").textContent       = p.bio;
+  $("pFollowers").textContent = p.followers;
+  $("pFollowing").textContent = p.following;
+  $("pPosts").textContent     = state.posts.length;
+  const inner = $("avatarInner");
+  if (p.avatarId && urlCache.has(p.avatarId)) {
+    inner.style.backgroundImage = `url("${urlCache.get(p.avatarId)}")`;
+    inner.textContent = "";
+  } else if (p.avatarUrl) {
+    inner.style.backgroundImage = `url("${p.avatarUrl}")`;
+    inner.textContent = "";
+  } else {
+    inner.style.backgroundImage = "";
+    inner.textContent = "👤";
+  }
+  $("badgeToggle").checked = state.settings.showBadges;
+  grid.classList.toggle("show-badges", state.settings.showBadges);
+}
+
+function renderGrid() {
+  grid.innerHTML = "";
+  $("pPosts").textContent = state.posts.length;
+  if (!state.posts.length) {
+    const hint = document.createElement("div");
+    hint.className = "empty-hint";
+    hint.innerHTML = "Aucun post pour l'instant.<br>« ＋ Nouvelles photos » pour ajouter tes candidates,<br>« 🖼 Importer une capture » pour charger ton feed existant.<br>Tu peux aussi glisser-déposer des images ici.";
+    grid.appendChild(hint);
+    return;
+  }
+  for (const post of state.posts) {
+    const tile = document.createElement("div");
+    tile.className = "tile" + (post.isNew ? " is-new" : "");
+    tile.draggable = true;
+    tile.dataset.id = post.id;
+
+    const img = document.createElement("img");
+    img.src = urlCache.get(post.imgId) || post.imgUrl || "";
+    img.style.transform = `translate(${post.x || 0}%, ${post.y || 0}%) scale(${post.s || 1})`;
+    tile.appendChild(img);
+
+    const badge = document.createElement("span");
+    badge.className = "badge";
+    badge.textContent = "NOUVEAU";
+    tile.appendChild(badge);
+
+    const acts = document.createElement("div");
+    acts.className = "acts";
+    acts.innerHTML =
+      `<button class="crop" title="Recadrer">✥</button>` +
+      `<button class="flag" title="Basculer nouveau / existant">N</button>` +
+      `<button class="del"  title="Supprimer">✕</button>`;
+    tile.appendChild(acts);
+
+    acts.querySelector(".crop").onclick = () => openCrop(post.id);
+    acts.querySelector(".flag").onclick = () => {
+      post.isNew = !post.isNew;
+      tile.classList.toggle("is-new", post.isNew);
+      scheduleSave();
+    };
+    acts.querySelector(".del").onclick = () => {
+      state.posts = state.posts.filter(p => p.id !== post.id);
+      renderGrid(); scheduleSave();
+    };
+
+    grid.appendChild(tile);
+  }
+}
+
+/* ==================== Profil éditable ==================== */
+function bindEditable(elId, field) {
+  $(elId).addEventListener("input", e => {
+    state.profile[field] = e.target.textContent;
+    scheduleSave();
+  });
+}
+bindEditable("pUsername", "username");
+bindEditable("pName", "name");
+bindEditable("pBio", "bio");
+bindEditable("pFollowers", "followers");
+bindEditable("pFollowing", "following");
+
+$("avatar").onclick = () => $("avatarInput").click();
+$("avatarInput").onchange = async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  state.profile.avatarId = await addImage(f);
+  renderProfile(); scheduleSave();
+  e.target.value = "";
+};
+
+$("badgeToggle").onchange = e => {
+  state.settings.showBadges = e.target.checked;
+  grid.classList.toggle("show-badges", e.target.checked);
+  scheduleSave();
+};
+
+/* ==================== Ajout de photos ==================== */
+$("addPhotos").onclick = () => $("fileInput").click();
+$("fileInput").onchange = e => { addFiles([...e.target.files], true); e.target.value = ""; };
+
+async function addFiles(files, isNew) {
+  const imgs = files.filter(f => f.type.startsWith("image/"));
+  if (!imgs.length) return;
+  const newPosts = [];
+  for (const f of imgs) {
+    const imgId = await addImage(f);
+    newPosts.push({ id: uid(), imgId, isNew, x: 0, y: 0, s: 1 });
+  }
+  // Les nouvelles photos arrivent en haut du feed (les plus récentes)
+  state.posts = isNew ? [...newPosts, ...state.posts] : [...state.posts, ...newPosts];
+  renderGrid(); scheduleSave();
+}
+
+/* Glisser-déposer de fichiers sur la page */
+window.addEventListener("dragover", e => {
+  if ([...e.dataTransfer.types].includes("Files")) {
+    e.preventDefault();
+    document.body.classList.add("drag-over");
+  }
+});
+window.addEventListener("dragleave", e => {
+  if (!e.relatedTarget) document.body.classList.remove("drag-over");
+});
+window.addEventListener("drop", e => {
+  if ([...e.dataTransfer.types].includes("Files")) {
+    e.preventDefault();
+    document.body.classList.remove("drag-over");
+    addFiles([...e.dataTransfer.files], true);
+  }
+});
+
+/* ==================== Réorganisation drag & drop ==================== */
+let draggedEl = null;
+grid.addEventListener("dragstart", e => {
+  const t = e.target.closest(".tile");
+  if (!t) return;
+  draggedEl = t;
+  t.classList.add("dragging");
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", t.dataset.id);
+});
+grid.addEventListener("dragover", e => {
+  if (!draggedEl) return;
+  e.preventDefault();
+  const t = e.target.closest(".tile");
+  if (!t || t === draggedEl) return;
+  const r = t.getBoundingClientRect();
+  const before = (e.clientX - r.left) < r.width / 2;
+  grid.insertBefore(draggedEl, before ? t : t.nextSibling);
+});
+grid.addEventListener("dragend", () => {
+  if (!draggedEl) return;
+  draggedEl.classList.remove("dragging");
+  draggedEl = null;
+  const order = [...grid.querySelectorAll(".tile")].map(t => t.dataset.id);
+  state.posts.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+  scheduleSave();
+});
+
+/* ==================== Découpage de capture ==================== */
+const slicer = {
+  img: null,        // HTMLImageElement chargé (taille naturelle)
+  url: null
+};
+
+$("importShot").onclick = () => $("shotInput").click();
+$("shotInput").onchange = e => {
+  const f = e.target.files[0];
+  e.target.value = "";
+  if (!f) return;
+  if (slicer.url) URL.revokeObjectURL(slicer.url);
+  slicer.url = URL.createObjectURL(f);
+  const im = new Image();
+  im.onload = () => {
+    slicer.img = im;
+    $("slicerModal").classList.add("open");
+    initSlicer();
+  };
+  im.src = slicer.url;
+};
+
+/* L'image affichée doit être chargée ET visible pour dessiner l'overlay */
+$("slicerImg").addEventListener("load", () => requestAnimationFrame(updateSlicerOverlay));
+
+function initSlicer() {
+  const W = slicer.img.naturalWidth, H = slicer.img.naturalHeight;
+  $("slicerImg").src = slicer.url;
+  $("slTop").max = Math.floor(H * 0.7);  $("slTop").value = 0;
+  $("slSide").max = Math.floor(W / 4);   $("slSide").value = 0;
+  $("slGap").value = Math.max(2, Math.round(W / 400));
+  // Estimation du nombre de rangées visibles
+  const gap = +$("slGap").value;
+  const cellW = (W - 2 * gap) / 3;
+  $("slRows").value = Math.max(1, Math.floor((H + gap) / (cellW * 4 / 3 + gap)));
+  // L'image affichée doit être chargée pour connaître sa taille à l'écran
+  requestAnimationFrame(updateSlicerOverlay);
+}
+
+function slicerRects() {
+  const W = slicer.img.naturalWidth, H = slicer.img.naturalHeight;
+  const top = +$("slTop").value, side = +$("slSide").value;
+  const gap = +$("slGap").value, rows = Math.max(1, +$("slRows").value || 1);
+  const cellW = (W - 2 * side - 2 * gap) / 3;
+  const cellH = cellW * 4 / 3;
+  const rects = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < 3; c++) {
+      const x = side + c * (cellW + gap);
+      const y = top + r * (cellH + gap);
+      rects.push({ x, y, w: cellW, h: cellH, valid: y + cellH <= H + 2 && cellW > 10 });
+    }
+  }
+  return rects;
+}
+
+function updateSlicerOverlay() {
+  $("slTopV").textContent = $("slTop").value + " px";
+  $("slSideV").textContent = $("slSide").value + " px";
+  $("slGapV").textContent = $("slGap").value + " px";
+  const stage = $("slicerStage");
+  stage.querySelectorAll(".slicer-cell").forEach(el => el.remove());
+  const imgEl = $("slicerImg");
+  if (!imgEl.clientWidth) return;
+  const k = imgEl.clientWidth / slicer.img.naturalWidth;
+  for (const r of slicerRects()) {
+    const d = document.createElement("div");
+    d.className = "slicer-cell" + (r.valid ? "" : " invalid");
+    d.style.left = r.x * k + "px";
+    d.style.top = r.y * k + "px";
+    d.style.width = r.w * k + "px";
+    d.style.height = r.h * k + "px";
+    stage.appendChild(d);
+  }
+}
+for (const id of ["slTop", "slSide", "slGap", "slRows"])
+  $(id).addEventListener("input", updateSlicerOverlay);
+
+$("slCancel").onclick = () => $("slicerModal").classList.remove("open");
+
+$("slConfirm").onclick = async () => {
+  const rects = slicerRects().filter(r => r.valid);
+  if (!rects.length) { alert("Aucune cellule valide — ajuste la grille."); return; }
+  $("slConfirm").disabled = true;
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  const newPosts = [];
+  for (const r of rects) {
+    canvas.width = Math.round(r.w);
+    canvas.height = Math.round(r.h);
+    ctx.drawImage(slicer.img, r.x, r.y, r.w, r.h, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise(res => canvas.toBlob(res, "image/jpeg", 0.92));
+    const imgId = await addImage(blob);
+    newPosts.push({ id: uid(), imgId, isNew: false, x: 0, y: 0, s: 1 });
+  }
+  // Les posts existants vont sous les éventuelles nouvelles photos déjà présentes
+  state.posts = [...state.posts, ...newPosts];
+  $("slConfirm").disabled = false;
+  $("slicerModal").classList.remove("open");
+  renderGrid(); scheduleSave();
+};
+
+/* ==================== Siphonnage (bookmarklet + import) ==================== */
+/* Cette fonction est sérialisée en bookmarklet : elle s'exécute sur instagram.com,
+   pas dans cette page. Elle aspire les miniatures visibles et télécharge un .json. */
+async function igSiphon() {
+  try {
+    if (!location.hostname.includes("instagram.com")) {
+      alert("Ouvre d'abord la page d'un profil sur instagram.com, puis clique ce favori.");
+      return;
+    }
+    const toDataURL = blob => new Promise(res => {
+      const f = new FileReader();
+      f.onload = () => res(f.result);
+      f.readAsDataURL(blob);
+    });
+    const seen = new Set(), found = [];
+    document.querySelectorAll('a[href*="/p/"] img, a[href*="/reel/"] img').forEach(im => {
+      const src = im.currentSrc || im.src;
+      if (src && !seen.has(src)) { seen.add(src); found.push(src); }
+    });
+    if (!found.length) {
+      alert("Aucune miniature trouvée. Ouvre un profil (instagram.com/le_compte) et scrolle un peu.");
+      return;
+    }
+    const posts = [];
+    for (const src of found) {
+      let entry = null;
+      try {
+        const r = await fetch(src, { mode: "cors" });
+        if (r.ok) entry = { data: await toDataURL(await r.blob()) };
+      } catch (e) { /* CORS refusé -> on garde l'URL */ }
+      posts.push(entry || { url: src });
+    }
+    const username = location.pathname.split("/").filter(Boolean)[0] || "";
+    let stats = null;
+    const og = document.querySelector('meta[property="og:description"]');
+    if (og) {
+      const m = og.content.match(/([\d.,]+\s?[KMB]?)\s*Followers?,\s*([\d.,]+\s?[KMB]?)\s*Following/i);
+      if (m) stats = { followers: m[1], following: m[2] };
+    }
+    let avatar = null;
+    const av = document.querySelector("header img");
+    if (av) {
+      try {
+        const r = await fetch(av.currentSrc || av.src, { mode: "cors" });
+        if (r.ok) avatar = await toDataURL(await r.blob());
+      } catch (e) { avatar = av.currentSrc || av.src; }
+    }
+    const payload = { app: "igpreview", v: 1, username, stats, avatar, posts };
+    const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "igpreview-" + (username || "export") + ".json";
+    document.body.appendChild(a); a.click(); a.remove();
+    alert("Siphonnage terminé : " + posts.length + " posts exportés.\nImporte le fichier téléchargé dans IGPreview.");
+  } catch (e) { alert("Erreur siphon : " + e.message); }
+}
+
+$("bookmarklet").href = "javascript:" + encodeURIComponent("(" + igSiphon.toString() + ")()");
+$("bookmarklet").onclick = e => {
+  e.preventDefault();
+  alert("Ne clique pas ici : glisse ce bouton dans ta barre de favoris, puis clique-le depuis une page Instagram.");
+};
+
+$("siphonBtn").onclick = () => $("siphonModal").classList.add("open");
+$("siphonClose").onclick = () => $("siphonModal").classList.remove("open");
+$("importExportBtn").onclick = () => $("exportInput").click();
+$("exportInput").onchange = async e => {
+  const f = e.target.files[0];
+  e.target.value = "";
+  if (!f) return;
+  try {
+    await importSiphon(JSON.parse(await f.text()));
+  } catch (err) {
+    alert("Fichier illisible : " + err.message);
+  }
+};
+
+async function importSiphon(json) {
+  if (json.app !== "igpreview" || !Array.isArray(json.posts)) {
+    alert("Ce fichier n'est pas un export IGPreview.");
+    return;
+  }
+  const newPosts = [];
+  let remote = 0;
+  for (const item of json.posts) {
+    if (item.data) {
+      const blob = await (await fetch(item.data)).blob();
+      const imgId = await addImage(blob);
+      newPosts.push({ id: uid(), imgId, isNew: false, x: 0, y: 0, s: 1 });
+    } else if (item.url) {
+      remote++;
+      newPosts.push({ id: uid(), imgUrl: item.url, isNew: false, x: 0, y: 0, s: 1 });
+    }
+  }
+  // Les posts siphonnés sont les existants : ils vont sous les nouvelles photos
+  state.posts = [...state.posts, ...newPosts];
+  if (json.username) state.profile.username = json.username;
+  if (json.stats) {
+    state.profile.followers = json.stats.followers;
+    state.profile.following = json.stats.following;
+  }
+  if (json.avatar) {
+    if (json.avatar.startsWith("data:")) {
+      const blob = await (await fetch(json.avatar)).blob();
+      state.profile.avatarId = await addImage(blob);
+      state.profile.avatarUrl = null;
+    } else {
+      state.profile.avatarId = null;
+      state.profile.avatarUrl = json.avatar;
+    }
+  }
+  $("siphonModal").classList.remove("open");
+  renderProfile(); renderGrid(); scheduleSave();
+  if (remote) alert(remote + " miniature(s) référencée(s) par URL distante : elles s'afficheront tant que les liens Instagram restent valides.");
+}
+
+/* ==================== Recadrage ==================== */
+const crop = { postId: null, x: 0, y: 0, s: 1 };
+
+function applyCropTransform() {
+  $("cropImg").style.transform = `translate(${crop.x}%, ${crop.y}%) scale(${crop.s})`;
+}
+function clampCrop() {
+  const lim = 45 * crop.s;
+  crop.x = Math.max(-lim, Math.min(lim, crop.x));
+  crop.y = Math.max(-lim, Math.min(lim, crop.y));
+}
+
+function openCrop(postId) {
+  const post = state.posts.find(p => p.id === postId);
+  if (!post) return;
+  crop.postId = postId;
+  crop.x = post.x || 0; crop.y = post.y || 0; crop.s = post.s || 1;
+  $("cropImg").src = urlCache.get(post.imgId) || post.imgUrl || "";
+  $("cropZoom").value = crop.s;
+  applyCropTransform();
+  $("cropModal").classList.add("open");
+}
+
+const vp = $("cropViewport");
+let panStart = null;
+vp.addEventListener("pointerdown", e => {
+  panStart = { px: e.clientX, py: e.clientY, x: crop.x, y: crop.y };
+  vp.setPointerCapture(e.pointerId);
+});
+vp.addEventListener("pointermove", e => {
+  if (!panStart) return;
+  crop.x = panStart.x + (e.clientX - panStart.px) / vp.clientWidth * 100;
+  crop.y = panStart.y + (e.clientY - panStart.py) / vp.clientHeight * 100;
+  clampCrop();
+  applyCropTransform();
+});
+vp.addEventListener("pointerup", () => panStart = null);
+vp.addEventListener("wheel", e => {
+  e.preventDefault();
+  crop.s = Math.max(1, Math.min(3, crop.s - e.deltaY * 0.0015));
+  $("cropZoom").value = crop.s;
+  clampCrop(); applyCropTransform();
+}, { passive: false });
+
+$("cropZoom").oninput = e => {
+  crop.s = +e.target.value;
+  clampCrop(); applyCropTransform();
+};
+$("cropReset").onclick = () => {
+  crop.x = 0; crop.y = 0; crop.s = 1;
+  $("cropZoom").value = 1;
+  applyCropTransform();
+};
+$("cropCancel").onclick = () => $("cropModal").classList.remove("open");
+$("cropSave").onclick = () => {
+  const post = state.posts.find(p => p.id === crop.postId);
+  if (post) { post.x = crop.x; post.y = crop.y; post.s = crop.s; }
+  $("cropModal").classList.remove("open");
+  renderGrid(); scheduleSave();
+};
+
+/* ==================== Scénarios ==================== */
+function renderScenarioSelect() {
+  const sel = $("scenarioSelect");
+  sel.innerHTML = "";
+  for (const sc of scenarios) {
+    const o = document.createElement("option");
+    o.value = sc.id; o.textContent = sc.name;
+    if (sc.id === currentId) o.selected = true;
+    sel.appendChild(o);
+  }
+}
+
+async function loadScenario(id) {
+  const rec = await dbGet("scenarios", id);
+  if (!rec) return;
+  currentId = id;
+  state = rec.state;
+  await dbSet("meta", "current", id);
+  const ids = [state.profile.avatarId, ...state.posts.map(p => p.imgId)].filter(Boolean);
+  await Promise.all(ids.map(ensureURL));
+  renderScenarioSelect();
+  renderProfile();
+  renderGrid();
+}
+
+async function createScenario(name, st) {
+  const id = uid();
+  const rec = { name, createdAt: Date.now(), state: st || defaultState() };
+  await dbSet("scenarios", id, rec);
+  scenarios.push({ id, name, createdAt: rec.createdAt });
+  await loadScenario(id);
+}
+
+$("scenarioSelect").onchange = async e => { await saveNow(); await loadScenario(e.target.value); };
+
+$("scNew").onclick = async () => {
+  const name = prompt("Nom du nouveau scénario :", "Scénario " + (scenarios.length + 1));
+  if (!name) return;
+  await saveNow();
+  await createScenario(name);
+};
+$("scRename").onclick = async () => {
+  const sc = scenarios.find(s => s.id === currentId);
+  const name = prompt("Nouveau nom :", sc.name);
+  if (!name) return;
+  sc.name = name;
+  await saveNow();
+  renderScenarioSelect();
+};
+$("scDup").onclick = async () => {
+  const sc = scenarios.find(s => s.id === currentId);
+  await saveNow();
+  const copy = JSON.parse(JSON.stringify(state));
+  copy.posts.forEach(p => p.id = uid());
+  await createScenario(sc.name + " (copie)", copy);
+};
+$("scDel").onclick = async () => {
+  if (scenarios.length <= 1) { alert("Impossible de supprimer le dernier scénario."); return; }
+  const sc = scenarios.find(s => s.id === currentId);
+  if (!confirm(`Supprimer « ${sc.name} » ?`)) return;
+  await dbDel("scenarios", currentId);
+  scenarios = scenarios.filter(s => s.id !== currentId);
+  await loadScenario(scenarios[0].id);
+  await gcImages();
+};
+
+/* Nettoyage des images orphelines */
+async function gcImages() {
+  const referenced = new Set();
+  for (const key of await dbKeys("scenarios")) {
+    const rec = await dbGet("scenarios", key);
+    if (rec.state.profile.avatarId) referenced.add(rec.state.profile.avatarId);
+    rec.state.posts.forEach(p => referenced.add(p.imgId));
+  }
+  for (const key of await dbKeys("images"))
+    if (!referenced.has(key)) await dbDel("images", key);
+}
+
+/* ==================== Init ==================== */
+(async function init() {
+  db = await openDB();
+  const keys = await dbKeys("scenarios");
+  for (const key of keys) {
+    const rec = await dbGet("scenarios", key);
+    scenarios.push({ id: key, name: rec.name, createdAt: rec.createdAt });
+  }
+  scenarios.sort((a, b) => a.createdAt - b.createdAt);
+  if (!scenarios.length) {
+    await createScenario("Scénario 1");
+  } else {
+    const cur = await dbGet("meta", "current");
+    await loadScenario(scenarios.some(s => s.id === cur) ? cur : scenarios[0].id);
+  }
+  gcImages();
+})();
+</script>
+</body>
+</html>
